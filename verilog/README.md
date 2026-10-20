@@ -48,3 +48,44 @@ If you have the FTDI programming cable hooked up to the card, you can also type 
 If the `make prog` command can't find the FTDI programming cable, make sure you have the udev rules set up.
 
 
+
+## Standalone output and SRAM test
+
+The fourth image, `cga_test_top`, starts a test pattern without BIOS setup,
+ISA clocks, bus reset, or working video RAM. Select it with DIP switches 3
+and 4 both closed, then power-cycle the card or use `make reset`. Switches
+1 and 2 are ignored; VGA RGB output is always enabled (no composite mode).
+
+Both ports show sixteen RGBI color bars, a white border, and an 8x8
+black/white checkerboard along the bottom. The 9-pin CGA port generates
+640x200 at about 15.70 kHz horizontal / 59.92 Hz vertical. The VGA port
+repeats each row for 640x400 at about 31.40 kHz / 59.92 Hz, using the same
+28.636 MHz clock and color DAC mapping as the CGA image, including brown.
+These are CGA-derived timings, rather than standard 640x480 VGA timing.
+
+The image never drives ISA data or requests wait states. It requires card
+power and the onboard 14.318 MHz oscillator, but no host initialization.
+
+A continuous destructive SRAM test fills all 512 KiB and then verifies it.
+Six passes use address bits A0-A7, A8-A15, and A16-A18, each normally and
+inverted. Filling before checking catches address aliasing; the data
+patterns exercise all eight data lines at both levels. One complete cycle
+takes about one second. The display does not depend on SRAM contents.
+
+Any mismatch latches a failure until FPGA reconfiguration (power-cycle or
+`make reset`). A red 16x16 square in the top-left black bar blinks at about
+1 Hz on both ports. No marker means no failure detected yet; allow a full
+cycle before judging the result. This checks stuck/aliased address lines,
+data faults, and memory contents, rather than being an exhaustive SRAM
+stress test. Consistently swapped address or data wires can still pass a
+write/read test.
+
+SRAM bus turnaround and write timing follow the fitted 10 ns part's
+[ISSI datasheet](https://www.mouser.com/datasheet/2/198/61-64WV5128Axx-Bxx-258353.pdf).
+`make test-sram` requires Verilator and a C++ compiler and checks a complete
+healthy-memory cycle plus injected stuck-low/high faults on every address
+and data line and a data-line short.
+
+`make` includes it as the fourth entry in `build/isavideo.binm`, preserving
+the original three image selections. `make test-pattern` runs the standalone
+simulation checks.

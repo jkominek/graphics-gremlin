@@ -91,7 +91,7 @@ The bitstream is selected using switches 3 and 4:
 | open   | open   | Bitstream 0  | MDA (VGA compatible signal) |
 | open   | closed | Bitstream 1  | MDA (MDA monitors only) |
 | closed | open   | Bitstream 2  | CGA (both VGA and CGA compatible signals) |
-| closed | closed | Bitstream 3  | Not used |
+| closed | closed | Bitstream 3  | CGA test pattern + SRAM tester (VGA and CGA, no ISA interface) |
 
 For example, if you want to use MDA with a VGA monitor, set switches 3 and 4
 to the open (up) position. (CGA has support for both VGA and CGA monitors built in since it implements a line doubler.)

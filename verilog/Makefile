@@ -8,8 +8,8 @@
 #
 
 PROJ = isavideo
-IMAGES = mda70_top mda_top cga_top
-SOURCES = mda70_top.v mda_top.v mda.v crtc6845.v mda_vgaport.v mda_vram.v mda_attrib.v mda_sequencer.v mda_pixel.v cga_top.v cga.v cga_vgaport.v cga_sequencer.v cga_pixel.v cga_attrib.v cga_vram.v cga_composite.v cga_scandoubler.v
+IMAGES = mda70_top mda_top cga_top cga_test_top
+SOURCES = sram_test.v cga_test_top.v mda70_top.v mda_top.v mda.v crtc6845.v mda_vgaport.v mda_vram.v mda_attrib.v mda_sequencer.v mda_pixel.v cga_top.v cga.v cga_vgaport.v cga_sequencer.v cga_pixel.v cga_attrib.v cga_vram.v cga_composite.v cga_scandoubler.v
 PIN_DEF =  gremlin.pcf
 DEVICE = hx8k
 ODIR = build
@@ -19,7 +19,10 @@ DEPS = $(addprefix $(ODIR)/,$(addsuffix .d,$(IMAGES)))
 all: $(addprefix $(ODIR)/,$(addsuffix .rpt,$(IMAGES))) $(ODIR)/$(PROJ).binm
 
 # removed %.v
-$(ODIR)/%.json: $(SOURCES)
+$(ODIR):
+	mkdir -p $@
+
+$(ODIR)/%.json: $(SOURCES) | $(ODIR)
 	yosys -p 'synth_ice40 -top $(basename $(notdir $@)) -json $@' $(SOURCES) -E $(basename $(notdir $@)).d
 #	yosys -p 'synth_ice40 -top mda_top -json $@' $(SOURCES) -E $(DEPS)
 #	@echo yosys -p 'synth_ice40 -top isavideo -json $@' $^ -E $(DEPS)
@@ -41,6 +44,18 @@ $(ODIR)/%.binm: $(addprefix $(ODIR)/,$(addsuffix .bin, $(IMAGES)))
 $(ODIR)/%.rpt: $(ODIR)/%.asc
 	icetime -d $(DEVICE) -mtr $@ $<
 #	@echo icetime -d $(DEVICE) -mtr $@ $<
+
+test-pattern: | $(ODIR)
+	iverilog -g2012 -s cga_test_t -o $(ODIR)/cga_test_t.out cga_test_t.v cga_test_top.v cga_vgaport.v sram_test.v sram_test_model.v
+	vvp $(ODIR)/cga_test_t.out
+
+test-sram-bus: | $(ODIR)
+	iverilog -g2012 -s sram_bus_t -o $(ODIR)/sram_bus_t.out sram_bus_t.v sram_test.v sram_test_model.v
+	vvp $(ODIR)/sram_bus_t.out
+
+test-sram: test-sram-bus | $(ODIR)
+	verilator --cc --exe --build --top-module sram_test --Mdir $(ODIR)/sram_test_obj -o sram_test_t sram_test.v $(abspath sram_test_t.cpp)
+	$(ODIR)/sram_test_obj/sram_test_t
 
 sim: $(ODIR)/$(PROJ)_t.vcd
 
@@ -67,7 +82,7 @@ reset:
 # Don't delete individual images
 PRECIOUS: $(addsuffix .bin, $(addprefix $(ODIR)/,$(IMAGES)))
 
-.PHONY: all prog clean reset
+.PHONY: all prog clean reset test-pattern test-sram test-sram-bus
 
 # Depsfile
 -include $(DEPS)
